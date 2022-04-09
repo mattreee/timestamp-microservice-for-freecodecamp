@@ -10,37 +10,29 @@ var app = express();
 var cors = require('cors');
 app.use(cors({ optionsSuccessStatus: 200 }));  // some legacy browsers choke on 204
 
+const hasDashRegExp = /\-/gi;
+const UTCformatRegExp = /^([0-9]{4,})-(0[1-9]{1}|1[012]{1})-((0[1-9]{1}|(1|2)[0-9]{1})|(3[01]))$/;
+
 function validatorMiddleware(request, response, next) {
    const { time } = request.params;
-   const hasLettersRegExp = /[a-z]/gi;
-   const hasDashRegExp = /\-/gi;
-   const UTCformatRegExp = /^([0-9]{4,})-(0[1-9]{1}|1[012]{1})-((0[1-9]{1}|(1|2)[0-9]{1})|(3[01]))$/;
 
-   if (hasLettersRegExp.test(time)) {
-      return response
-         .status(400)
-         .json({ error: 'date provided must not contain letters' });
+   if (time === undefined) {
+      request.time = undefined;
+      next();
    };
 
    if (hasDashRegExp.test(time)) {
       if (time.length !== 10) {
          return response
             .status(400)
-            .json({ error: 'UTC time provided is not valid' });
+            .json({ error: "Invalid Date" });
       };
 
       if (!UTCformatRegExp.test(time)) {
          return response
             .status(400)
-            .json({ error: 'Invalid date. UTC dates must follow YYYY-MM-DD format' });
+            .json({ error: "Invalid Date" });
       }
-   };
-
-
-   if (time === undefined) {
-      return response
-         .status(400)
-         .json({ error: 'user must inform a date or unix time' });
    };
 
    request.time = time;
@@ -69,9 +61,20 @@ app.get('/api/:time?', validatorMiddleware, (request, response) => {
       utc: ""
    };
 
+   if (time === undefined) {
+      result.unix = new Date().getTime();
+      result.utc = new Date().toUTCString();
+      return response.json(result);
+   }
+
    if (time.length === 10 && time.indexOf('-') !== -1) {
       result.unix = new Date(time).getTime();
       result.utc = new Date(time).toUTCString();
+
+   } else if (time.includes(" ")) {
+      result.unix = new Date(time).getTime();
+      result.utc = new Date(time).toUTCString();
+
    } else {
       result.unix = new Date(Number(time)).getTime();
       result.utc = new Date(Number(time)).toUTCString();
